@@ -7,17 +7,16 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
@@ -25,22 +24,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,8 +74,12 @@ fun ToolTipContainer(
 
             ToolTip(
                 modifier = Modifier,
-                process = width * process,
-                contentPadding = PaddingValues(8.dp)
+                process = process,
+                parentSize = width,
+                contentPadding = PaddingValues(8.dp),
+                innerColor = Color.White,
+                strokeColor = Color.White,
+                strokeWidth = 1.dp
             ) {
                 Text(
                     text = "val: ${process.toInt() * 100}",
@@ -91,12 +89,14 @@ fun ToolTipContainer(
                 )
             }
 
+            Spacer(modifier = Modifier.height(4.dp))
             Box(
                 modifier = Modifier
                     .height(4.dp)
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
-                    .background(Color.Red)
+                    .background(Color.Red, shape = RoundedCornerShape(4.dp))
+                    .clip(RoundedCornerShape(4.dp))
                     .pointerInteropFilter {
                         when (it.action) {
                             MotionEvent.ACTION_DOWN,
@@ -139,27 +139,41 @@ fun ToolTip(
     cornerRadius: Dp = 16.dp,
     arrowSize: Dp = 8.dp,
     process: Float,
+    parentSize: Int,
     contentPadding: PaddingValues,
+    strokeWidth: Dp,
+    strokeColor: Color,
+    innerColor: Color,
     content: @Composable BoxScope.() -> Unit
 ) {
 
+    var toolTipWidth by remember {
+        mutableStateOf(0f)
+    }
+
+    val offsetX = minOf(parentSize * process, (parentSize - toolTipWidth))
+
+    var dif = (parentSize * process) - offsetX
+
     Box(
-        Modifier
-            .offset(process.pxToDp())
+        modifier
+            .offset(offsetX.pxToDp())
             .drawWithCache {
+                toolTipWidth = this.size.width
+
                 onDrawBehind {
                     val width = size.width
                     val height = size.height
 
-                    var topPadding = 0.dp.toPx()
-                    var leftPadding = 0.dp.toPx() //+ process * width
-                    var bottomPadding = 16.dp.toPx()
-                    var rightPadding = 0.dp.toPx()
-
                     var radius = cornerRadius.toPx()
                     var arrowSizePx = arrowSize.toPx()
 
-                    var X = 0
+                    var topPadding = 0.dp.toPx()
+                    var leftPadding = 0.dp.toPx() //+ process * width
+                    var bottomPadding = arrowSizePx
+                    var rightPadding = 0.dp.toPx()
+
+                    var X = dif
 
 
                     var path = Path().apply {
@@ -235,14 +249,14 @@ fun ToolTip(
                     }
 
                     clipPath(path) {
-                        drawRect(color = Color.White)
+                        drawRect(color = innerColor)
                     }
 
                     drawPath(
                         path = path,
-                        color = Color.Red,
+                        color = strokeColor,
                         style = Stroke(
-                            width = 2.dp.toPx(),
+                            width = strokeWidth.toPx(),
                             cap = StrokeCap.Round,
                             join = StrokeJoin.Round,
                             miter = 5f,
@@ -253,6 +267,7 @@ fun ToolTip(
             }
             .padding(bottom = arrowSize)
             .padding(contentPadding)
+
     ) {
         content()
     }
